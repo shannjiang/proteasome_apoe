@@ -1,6 +1,7 @@
 library(rhdf5)
 library(Matrix)
 library(Seurat)
+library(scCB2)
 
 work_dir = '/home/shann/Documents/GEO/GSE167497/samples/'
 
@@ -8,6 +9,9 @@ samples = list.files(work_dir)
 samples = gsub('_raw_gene_bc_matrices_h5\\.h5','',samples)
 samples2 = samples[1:3]
 sample = samples2[1]
+
+#z = H5Fopen('/home/shann/Documents/GEO/GSE167497/GSE167497_filtered_gene_bc_matrices_h5.h5')
+z = h5read('/home/shann/Documents/GEO/GSE167497/GSE167497_filtered_gene_bc_matrices_h5.h5','mm10-1.2.0_premrna')
 
 h5_to_ctMtx = function(sample = sample){
   gsmid = sub('_.*','',sample)
@@ -29,11 +33,19 @@ h5_to_ctMtx = function(sample = sample){
   return(counts)
 }
 
+scCB2_h5_to_ctMtx = function(sample = sample){
+  gsmid = sub('_.*','',sample)
+  counts = QuickCB2(h5file = paste0(work_dir,sample,'_raw_gene_bc_matrices_h5.h5'))
+  rownames(counts) = z$genes
+  colnames(counts) = paste0(gsmid,'_',colnames(counts))
+  return(counts)
+}
+
 cts_lst = list()
 for(sample in samples2){
   #h5 = H5Fopen(paste0(work_dir,sample,'_raw_gene_bc_matrices_h5.h5'))
   print(paste0('process ',sample))
-  cts_lst[length(cts_lst)+1] = h5_to_ctMtx(sample)
+  cts_lst[length(cts_lst)+1] = scCB2_h5_to_ctMtx(sample)
 }
 
 cts = do.call(cbind,cts_lst)
