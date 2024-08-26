@@ -53,6 +53,7 @@ cel_exp_ct = function(x){
   return(sum(x != 0))
 }
 
+#cell subtype AD vs Control
 for(celltype in celltypes){
 #seu <- LoadH5Seurat(paste0(work_dir,celltype,'/',celltype,'.h5Seurat'))
 #seuObj = load(paste0(work_dir,celltype,'_seu.rda'))
@@ -74,7 +75,7 @@ substr_cts = as.data.frame(t(substr_cts))
 
 meta = seu@meta.data
 meta$diagnosis = with(meta,ifelse(ceradsc==1,'AD',ifelse(ceradsc==2,'AD','Control')))
-substr_cts$subtype = with(meta,paste0(cell.type,'_',diagnosis))
+substr_cts$subtype = with(meta,paste0(state,'_',diagnosis))
 cel_exp_df = aggregate(.~subtype,substr_cts,cel_exp)
 cel_exp_long = melt(cel_exp_df)
 colnames(cel_exp_long) = c('celltype','substructure','cell_exp')
@@ -89,7 +90,7 @@ dot_df$cell_exp_pct = cel_exp_pct_long$cell_exp_pct
 dot_df$cell_exp_ct = cel_exp_ct_long$cell_exp_ct
 midpoint = median(dot_df$cell_exp)
 #celltype order
-celltypes = unique(meta$cell.type)
+celltypes = unique(meta$state)
 celltypes = celltypes[order(celltypes)]
 celltypes = rep(celltypes,each=2)
 celltypes = paste0(celltypes,'_',c('Control','AD'))
@@ -97,13 +98,72 @@ dot_df$celltype = factor(dot_df$celltype,levels = celltypes)
 #graph
 p = ggplot(dot_df, aes(x=celltype, y = substructure, color = cell_exp, size = cell_exp_pct)) +
   geom_point() + geom_text(label = dot_df$cell_exp_ct, nudge_x = 0, nudge_y = 0.25, check_overlap = T, color = 'black', size = 2) +
-  scale_colour_gradient2(name = 'cell exp', low = 'blue', mid = 'white', high = 'red', midpoint = midpoint) +
+  scale_colour_gradient2(name = 'cell exp', low = 'blue', mid = 'white smoke', high = 'red', midpoint = midpoint) +
   cowplot::theme_cowplot() +
   theme(axis.line  = element_blank()) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
   ylab('') +
   theme(axis.ticks = element_blank())
-pdf(file = paste0(out_dir, 'DeJager_rosmap_snRNAseq_',celltype,'_subtype_by_diagnosis_dotplot_BWR.pdf'), width = 9, height = 5)
+pdf(file = paste0(out_dir, 'DeJager_rosmap_snRNAseq_',celltype,'_subtype_by_diagnosis_dotplot_BWR.pdf'), width = 12, height = 5)
+print(p)
+dev.off()
+}
+
+#cell subtype AD vs Control by APOE4status
+for(celltype in celltypes){
+#seu <- LoadH5Seurat(paste0(work_dir,celltype,'/',celltype,'.h5Seurat'))
+#seuObj = load(paste0(work_dir,celltype,'_seu.rda'))
+seuObj = load('/home/shann/Documents/synapse/ROSMAP/snrnaseq/DeJager/seurat_files/endo_seu.rda')
+cts = seu@assays$RNA@counts
+gene_substructure_df2 = gene_substructure_df[gene_substructure_df$substructure %in% c('20S','19S','IP'),]
+cts = cts[rownames(cts) %in% gene_substructure_df2$gene,]
+cts = as.data.frame(as.matrix(cts))
+cts2 = as.data.frame(apply(cts,2,as.integer))
+rownames(cts2) = rownames(cts)
+cts = cts2
+gene_substructure_df2 = gene_substructure_df2[rownames(gene_substructure_df2) %in% rownames(cts),]
+gene_substructure_df2 = gene_substructure_df2[rownames(cts),]
+cts$substructure = gene_substructure_df2$substructure
+substr_cts = aggregate(.~substructure,cts,sum)
+rownames(substr_cts) = substr_cts$substructure
+substr_cts = substr_cts[,!colnames(substr_cts) %in% 'substructure']
+substr_cts = as.data.frame(t(substr_cts))
+
+meta = seu@meta.data
+meta$diagnosis = with(meta,ifelse(ceradsc==1,'AD',ifelse(ceradsc==2,'AD','Control')))
+meta$APOE4status = with(meta,ifelse(apoe_genotype==22,'APOE4noncarrier',ifelse(apoe_genotype==23,'APOE4noncarrier',ifelse(apoe_genotype==33,'APOE4noncarrier',ifelse(apoe_genotype==24,'APOE4carrier',ifelse(apoe_genotype==34,'APOE4carrier',ifelse(apoe_genotype==44,'APOE4carrier',NA)))))))
+substr_cts$subtype = with(meta,paste0(state,'_',diagnosis,'_',APOE4status))
+cel_exp_df = aggregate(.~subtype,substr_cts,cel_exp)
+cel_exp_long = melt(cel_exp_df)
+colnames(cel_exp_long) = c('celltype','substructure','cell_exp')
+cel_exp_pct_df = aggregate(.~subtype,substr_cts,cel_exp_pct)
+cel_exp_pct_long = melt(cel_exp_pct_df)
+colnames(cel_exp_pct_long) = c('celltype','substructure','cell_exp_pct')
+cel_exp_ct_df = aggregate(.~subtype,substr_cts,cel_exp_ct)
+cel_exp_ct_long = melt(cel_exp_ct_df)
+colnames(cel_exp_ct_long) = c('celltype','substructure','cell_exp_ct')
+dot_df = cel_exp_long
+dot_df$cell_exp_pct = cel_exp_pct_long$cell_exp_pct
+dot_df$cell_exp_ct = cel_exp_ct_long$cell_exp_ct
+dot_df = dot_df[!dot_df$celltype %in% grep("_NA$", dot_df$celltype, invert=FALSE, value = TRUE),]
+midpoint = median(dot_df$cell_exp)
+#celltype order
+celltypes = unique(meta$state)
+celltypes = celltypes[order(celltypes)]
+celltypes = rep(celltypes,each=4)
+celltypes = paste0(celltypes,'_',c('Control_APOE4noncarrier','Control_APOE4carrier','AD_APOE4noncarrier','AD_APOE4carrier'))
+celltypes = celltypes[celltypes %in% dot_df$celltype]
+dot_df$celltype = factor(dot_df$celltype,levels = celltypes)
+#graph
+p = ggplot(dot_df, aes(x=celltype, y = substructure, color = cell_exp, size = cell_exp_pct)) +
+  geom_point() + geom_text(label = dot_df$cell_exp_ct, nudge_x = 0, nudge_y = 0.25, check_overlap = T, color = 'black', size = 2) +
+  scale_colour_gradient2(name = 'cell exp', low = 'blue', mid = 'white smoke', high = 'red', midpoint = midpoint) +
+  cowplot::theme_cowplot() +
+  theme(axis.line  = element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  ylab('') +
+  theme(axis.ticks = element_blank())
+pdf(file = paste0(out_dir, 'DeJager_rosmap_snRNAseq_',celltype,'_subtype_by_diagnosis_by_APOE4status_dotplot_BWR.pdf'), width = 0.315*length(celltypes), height = 5)
 print(p)
 dev.off()
 }
