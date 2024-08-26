@@ -60,6 +60,10 @@ for(celltype in celltypes){
 seuObj = load('/home/shann/Documents/synapse/ROSMAP/snrnaseq/DeJager/seurat_files/endo_seu.rda')
 cts = seu@assays$RNA@counts
 gene_substructure_df2 = gene_substructure_df[gene_substructure_df$substructure %in% c('20S','19S','IP'),]
+if(celltype == 'cux2+' || celltype == 'cux2-'){
+  prot_seu = seu[rownames(seu) %in% gene_substructure_df2$gene,]
+  save(prot_seu,file = paste0(out_dir,'DeJager_rosmap_snRNAseq_',celltype,'_prot_seu.rda'))
+}
 cts = cts[rownames(cts) %in% gene_substructure_df2$gene,]
 cts = as.data.frame(as.matrix(cts))
 cts2 = as.data.frame(apply(cts,2,as.integer))
